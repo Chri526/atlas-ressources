@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Atlas Géopolitique des Ressources</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<!-- PWA / installation -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e1a26">
+
+<!-- iOS : ajout à l'écran d'accueil -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Atlas Ressources">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --ink:#0e1a26;
+    --panel:#152436;
+    --panel-2:#1b2f45;
+    --line:#2c4258;
+    --paper:#e7e0cf;
+    --paper-dim:#a9a390;
+    --brass:#c39a4a;
+    --brass-dim:#8a713a;
+    --rust:#a8543c;
+    --teal:#4a8a86;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--ink);color:var(--paper);
+    font-family:'IBM Plex Mono', 'Courier New', monospace;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+
+  header{
+    padding:14px 22px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  }
+  header h1{
+    font-family:'Spectral', Georgia, serif;
+    font-weight:600; font-size:22px; letter-spacing:0.5px; margin:0; color:var(--paper);
+  }
+  header .subtitle{font-size:11.5px; color:var(--paper-dim); letter-spacing:0.5px;}
+
+  #main{display:flex; flex:1; min-height:0;}
+
+  #sidebar{
+    width:270px; min-width:220px; border-right:1px solid var(--line);
+    background:var(--panel); padding:16px; overflow-y:auto;
+  }
+  #sidebar h2{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:1.5px;
+    color:var(--brass); margin:0 0 8px 0; border-bottom:1px solid var(--line); padding-bottom:6px;
+  }
+  #chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:22px;}
+  .chip{
+    font-family:inherit; font-size:11px; padding:5px 9px; border-radius:2px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--paper);
+    cursor:pointer; display:flex; align-items:center; gap:6px; transition:all .15s;
+  }
+  .chip:hover{border-color:var(--brass);}
+  .chip.active{background:var(--brass); color:var(--ink); border-color:var(--brass); font-weight:600;}
+  .chip .dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0;}
+
+  #legend-note{font-size:11px; color:var(--paper-dim); line-height:1.6; margin-bottom:20px;}
+  #reset-btn{
+    width:100%; padding:7px; background:none; border:1px solid var(--brass-dim); color:var(--brass);
+    font-family:inherit; font-size:11px; cursor:pointer; letter-spacing:0.5px;
+  }
+  #reset-btn:hover{background:var(--brass); color:var(--ink);}
+
+  #map-wrap{flex:1; position:relative; background:
+      radial-gradient(circle at 30% 20%, #142234 0%, var(--ink) 70%);
+    overflow:hidden;
+  }
+  #map-wrap svg{width:100%; height:100%; display:block;}
+  .country{stroke:#0a141e; stroke-width:0.5; cursor:pointer; transition:opacity .2s, filter .2s;}
+  .country:hover{filter:brightness(1.25);}
+  .country.dimmed{opacity:0.18;}
+  .country.selected{stroke:var(--paper); stroke-width:1.6;}
+
+  #status{
+    position:absolute; bottom:10px; left:14px; font-size:10.5px; color:var(--paper-dim);
+    pointer-events:none;
+  }
+  #loading{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:var(--paper-dim); font-size:12px; letter-spacing:1px;
+  }
+
+  #panel{
+    width:0; overflow:hidden; border-left:1px solid var(--line); background:var(--panel);
+    transition:width .25s ease; flex-shrink:0;
+  }
+  #panel.open{width:320px;}
+  #panel-inner{width:320px; padding:20px; height:100%; overflow-y:auto;}
+  #panel-close{
+    float:right; background:none; border:none; color:var(--paper-dim); font-size:16px;
+    cursor:pointer; line-height:1;
+  }
+  #panel-inner h2{
+    font-family:'Spectral', Georgia, serif; font-size:20px; color:var(--paper); margin:0 0 4px 0;
+  }
+  #panel-inner .kicker{font-size:10px; color:var(--brass); letter-spacing:1.5px; text-transform:uppercase;}
+  .res-item{
+    margin:14px 0; padding:10px 12px; background:var(--panel-2); border-left:3px solid var(--brass);
+    border-radius:2px;
+  }
+  .res-item .res-cat{font-size:11px; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;}
+  .res-item .res-detail{font-size:11.5px; color:var(--paper-dim); line-height:1.5;}
+  #panel-inner .stakes-title{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:1.2px; color:var(--rust);
+    margin:20px 0 8px 0; border-top:1px solid var(--line); padding-top:14px;
+  }
+  #panel-inner .stakes-text{font-size:12px; line-height:1.65; color:var(--paper);}
+  #empty-panel{font-size:12px; color:var(--paper-dim); line-height:1.6;}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+
+  @media (max-width:760px){
+    #sidebar{position:absolute; z-index:5; height:calc(100% - 60px); top:60px;
+      transform:translateX(-100%); transition:transform .2s;}
+    #sidebar.mobile-open{transform:translateX(0);}
+    #panel.open{width:100%; position:absolute; z-index:6; top:0; height:100%;}
+    #panel-inner{width:100%;}
+    #main{position:relative;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>⛏ Atlas Géopolitique des Ressources</h1>
+    <span class="subtitle">Cliquez un pays pour voir ses ressources et les enjeux géopolitiques associés</span>
+  </header>
+  <div id="main">
+    <div id="sidebar">
+      <h2>Filtrer par ressource</h2>
+      <div id="chips"></div>
+      <button id="reset-btn">↺ Réinitialiser la vue</button>
+      <div id="legend-note">
+        La couleur par défaut d'un pays correspond à sa ressource dominante.
+        Sélectionnez une ressource ci-dessus pour isoler les pays qui la possèdent —
+        les autres s'estompent. Les pays en gris foncé ne sont pas couverts par cet atlas
+        (données volontairement limitées à des cas géopolitiquement significatifs).
+      </div>
+    </div>
+    <div id="map-wrap">
+      <div id="loading">Chargement de la carte du monde…</div>
+      <div id="status"></div>
+    </div>
+    <div id="panel">
+      <div id="panel-inner">
+        <button id="panel-close">✕</button>
+        <div id="panel-content">
+          <div id="empty-panel">Sélectionnez un pays sur la carte pour afficher le détail de ses ressources et des tensions géopolitiques qui y sont liées.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+// ---------- Resource categories ----------
+const CATS = {
+  petrole:   {label:"Pétrole",      color:"#a8543c"},
+  gaz:       {label:"Gaz naturel",  color:"#4a8a86"},
+  or:        {label:"Or",           color:"#c9a227"},
+  diamants:  {label:"Diamants",     color:"#bfd7ea"},
+  terres_rares:{label:"Terres rares",color:"#8c6bb1"},
+  cuivre:    {label:"Cuivre",       color:"#c07a3e"},
+  fer:       {label:"Fer",          color:"#b25d4c"},
+  uranium:   {label:"Uranium",      color:"#9fb42a"},
+  charbon:   {label:"Charbon",      color:"#6b6f76"},
+  lithium:   {label:"Lithium",      color:"#7fb2d9"},
+  cobalt:    {label:"Cobalt",       color:"#3d6ea5"},
+  agriculture:{label:"Agriculture", color:"#6b8e4e"},
+  bauxite:   {label:"Bauxite",      color:"#c2a66b"},
+  argent:    {label:"Argent",       color:"#b9b9b9"},
+  nickel:    {label:"Nickel",       color:"#7d97a3"},
+  phosphates:{label:"Phosphates",   color:"#8fbf8f"},
+  etain:     {label:"Étain",        color:"#9aa5ad"}
+};
+const NO_DATA_COLOR = "#1c2a38";
+
+// ---------- Country dataset ----------
+// aliases help match against Natural Earth / world-atlas name variants
+const DATA = {
+"Arabie saoudite": {aliases:["saudi arabia"], resources:[
+    {cat:"petrole", detail:"Premières réserves prouvées mondiales avec la Russie ; pilier de l'OPEP+, capable de faire varier sa production pour peser sur les prix mondiaux."}
+  ], stakes:"Le royaume utilise son rôle de \"swing producer\" pétrolier comme levier diplomatique, notamment via l'OPEP+ face aux États-Unis et à la Russie. Sa rivalité régionale avec l'Iran structure une grande partie des tensions au Moyen-Orient, souvent via des conflits par procuration (Yémen)."},
+"Russie": {aliases:["russia","russian federation"], resources:[
+    {cat:"petrole", detail:"Deuxième exportateur mondial de pétrole brut."},
+    {cat:"gaz", detail:"Premières réserves mondiales de gaz naturel, longtemps clé de voûte de l'approvisionnement européen."},
+    {cat:"nickel", detail:"Producteur majeur de nickel et de palladium, essentiels à l'électronique et à l'automobile."}
+  ], stakes:"La dépendance historique de l'Europe au gaz russe (gazoducs Nord Stream) a été utilisée comme arme économique après l'invasion de l'Ukraine en 2022, poussant l'UE à diversifier ses fournisseurs (GNL qatari, américain) à marche forcée. Les sanctions occidentales visent directement les exportations d'hydrocarbures russes."},
+"États-Unis d'Amérique": {aliases:["united states of america","united states","usa"], resources:[
+    {cat:"petrole", detail:"Premier producteur mondial de pétrole depuis l'essor du schiste (fracturation hydraulique)."},
+    {cat:"gaz", detail:"Premier producteur mondial de gaz, exportateur croissant de GNL vers l'Europe et l'Asie."},
+    {cat:"terres_rares", detail:"Réserves significatives, mais dépendance historique au raffinage chinois des terres rares."}
+  ], stakes:"La révolution du schiste a transformé les États-Unis en exportateur net d'énergie, réduisant leur dépendance au Golfe et redéfinissant leur diplomatie énergétique. La dépendance au raffinage chinois des terres rares reste une vulnérabilité stratégique majeure face à Pékin."},
+"Chine": {aliases:["china"], resources:[
+    {cat:"terres_rares", detail:"Contrôle environ deux tiers de l'extraction mondiale et l'essentiel du raffinage des terres rares."},
+    {cat:"charbon", detail:"Premier producteur et consommateur mondial de charbon."}
+  ], stakes:"La quasi-domination chinoise du raffinage des terres rares (indispensables aux aimants, semi-conducteurs, éoliennes, missiles) est devenue un outil de pression dans la guerre commerciale avec les États-Unis, qui cherchent à relocaliser des chaînes d'approvisionnement alternatives (Australie, USA, Afrique)."},
+"République démocratique du Congo": {aliases:["democratic republic of the congo","dem. rep. congo","congo, dem. rep.","congo (kinshasa)","dr congo"], resources:[
+    {cat:"cobalt", detail:"Plus de 70% de la production mondiale de cobalt, essentiel aux batteries lithium-ion."},
+    {cat:"diamants", detail:"Producteur historique de diamants industriels et gemmes."}
+  ], stakes:"Le cobalt congolais, indispensable à la transition vers les véhicules électriques, alimente des accusations récurrentes de travail des enfants et de \"minerais de conflit\" finançant des groupes armés dans l'Est du pays. La Chine y a pris une position dominante dans les mines, ce qui inquiète les industriels occidentaux dépendants de cette ressource."},
+"Afrique du Sud": {aliases:["south africa"], resources:[
+    {cat:"or", detail:"Historiquement premier producteur mondial d'or, toujours parmi les leaders."},
+    {cat:"charbon", detail:"Grand exportateur de charbon thermique."}
+  ], stakes:"L'industrie minière aurifère a façonné l'histoire économique et sociale du pays (dont l'apartheid). L'Afrique du Sud est aussi le principal détenteur mondial de platine, un métal stratégique pour les catalyseurs automobiles et les piles à hydrogène."},
+"Australie": {aliases:["australia"], resources:[
+    {cat:"fer", detail:"Premier exportateur mondial de minerai de fer, principalement vers la Chine."},
+    {cat:"lithium", detail:"Premier producteur mondial de lithium (mines de spodumène en Australie-Occidentale)."},
+    {cat:"charbon", detail:"Grand exportateur de charbon métallurgique et thermique."}
+  ], stakes:"L'économie australienne dépend fortement des exportations de minerai de fer et de lithium vers la Chine, créant une interdépendance économique en tension avec l'alliance stratégique de l'Australie avec les États-Unis (AUKUS), notamment face à l'influence chinoise dans le Pacifique."},
+"Brésil": {aliases:["brazil"], resources:[
+    {cat:"fer", detail:"Deuxième exportateur mondial de minerai de fer."},
+    {cat:"petrole", detail:"Réserves offshore importantes (couche pré-sal)."},
+    {cat:"agriculture", detail:"Premier exportateur mondial de soja et de sucre, grand exportateur de viande bovine."}
+  ], stakes:"L'expansion agricole, minière et pétrolière alimente une tension constante avec la préservation de l'Amazonie, enjeu devenu géopolitique majeur (accords climatiques, pressions européennes sur la déforestation importée)."},
+"Chili": {aliases:["chile"], resources:[
+    {cat:"cuivre", detail:"Premier producteur mondial de cuivre (environ un quart de l'offre mondiale)."},
+    {cat:"lithium", detail:"Deuxième producteur mondial de lithium, extrait des salars de l'Atacama."}
+  ], stakes:"Le \"triangle du lithium\" (Chili, Argentine, Bolivie) concentre une part énorme des réserves mondiales, convoitées pour les batteries électriques ; des velléités de nationalisation au Chili inquiètent les investisseurs étrangers, notamment chinois."},
+"Venezuela": {aliases:["venezuela"], resources:[
+    {cat:"petrole", detail:"Premières réserves prouvées de pétrole au monde, brut lourd nécessitant un raffinage complexe."}
+  ], stakes:"Malgré ses réserves record, la production s'est effondrée sous l'effet des sanctions américaines et de la mauvaise gestion de la compagnie d'État PDVSA. Le pays est aussi engagé dans un différend territorial avec le Guyana voisin autour de la région pétrolifère de l'Essequibo."},
+"Guyana": {aliases:["guyana"], resources:[
+    {cat:"petrole", detail:"Découvertes offshore massives depuis 2015 en faisant l'un des pays à plus forte croissance pétrolière au monde."}
+  ], stakes:"Les gisements offshore de l'Essequibo, région historiquement disputée avec le Venezuela voisin, ont ravivé un vieux conflit territorial depuis la confirmation de réserves pétrolières colossales, avec un risque d'escalade militaire régionale."},
+"Iran": {aliases:["iran"], resources:[
+    {cat:"petrole", detail:"Parmi les toutes premières réserves mondiales de pétrole."},
+    {cat:"gaz", detail:"Deuxièmes réserves mondiales de gaz naturel."}
+  ], stakes:"Les exportations pétrolières et gazières iraniennes sont fortement bridées par les sanctions internationales liées au programme nucléaire, ce qui pousse Téhéran vers des ventes informelles, notamment à la Chine, et alimente les tensions avec les monarchies du Golfe."},
+"Irak": {aliases:["iraq"], resources:[
+    {cat:"petrole", detail:"Parmi les cinq premières réserves mondiales de pétrole."}
+  ], stakes:"La rente pétrolière irakienne finance l'essentiel du budget de l'État mais alimente aussi les rivalités d'influence entre les États-Unis et l'Iran sur le territoire irakien, ainsi que des tensions internes sur le partage des revenus avec le Kurdistan irakien."},
+"Nigeria": {aliases:["nigeria"], resources:[
+    {cat:"petrole", detail:"Premier producteur de pétrole d'Afrique."},
+    {cat:"gaz", detail:"Importantes réserves de gaz naturel, notamment dans le delta du Niger."}
+  ], stakes:"L'exploitation pétrolière dans le delta du Niger a généré des décennies de pollution, de tensions avec les communautés locales et de vols de pétrole organisés, alimentant une insécurité chronique dans la région."},
+"Canada": {aliases:["canada"], resources:[
+    {cat:"petrole", detail:"Troisièmes réserves mondiales de pétrole, principalement via les sables bitumineux de l'Alberta."},
+    {cat:"uranium", detail:"Parmi les tout premiers producteurs mondiaux d'uranium."}
+  ], stakes:"Les sables bitumineux, coûteux et polluants à exploiter, dépendent presque entièrement du marché américain via des oléoducs dont les tracés (Keystone XL) ont été au cœur de vifs débats environnementaux et diplomatiques."},
+"Kazakhstan": {aliases:["kazakhstan"], resources:[
+    {cat:"uranium", detail:"Premier producteur mondial d'uranium."},
+    {cat:"petrole", detail:"Réserves pétrolières importantes en Asie centrale."}
+  ], stakes:"Sa position de premier fournisseur mondial d'uranium en fait un acteur clé pour l'approvisionnement des centrales nucléaires occidentales, dans un contexte où les pays cherchent à réduire leur dépendance à la Russie voisine sur le nucléaire civil."},
+"Botswana": {aliases:["botswana"], resources:[
+    {cat:"diamants", detail:"Un des tout premiers producteurs mondiaux de diamants en valeur."}
+  ], stakes:"Le pays a bâti l'un des partenariats les plus stables du secteur (avec De Beers) pour transformer sa rente diamantaire en développement, mais reste vulnérable à la baisse de la demande et à la concurrence des diamants synthétiques."},
+"Guinée": {aliases:["guinea"], resources:[
+    {cat:"bauxite", detail:"Premier exportateur mondial de bauxite, minerai de l'aluminium."}
+  ], stakes:"La Guinée est devenue incontournable pour l'approvisionnement en bauxite de la Chine, premier producteur mondial d'aluminium, ce qui rend les industriels chinois très présents et influents dans le secteur minier guinéen."},
+"Indonésie": {aliases:["indonesia"], resources:[
+    {cat:"nickel", detail:"Premier producteur mondial de nickel, essentiel aux batteries des véhicules électriques."},
+    {cat:"charbon", detail:"Grand exportateur de charbon thermique."},
+    {cat:"etain", detail:"Premier exportateur mondial d'étain."}
+  ], stakes:"En interdisant l'exportation de minerai de nickel brut pour forcer sa transformation locale, l'Indonésie a provoqué un contentieux à l'OMC avec l'Union européenne tout en attirant des investissements massifs chinois dans la filière batteries."},
+"Inde": {aliases:["india"], resources:[
+    {cat:"charbon", detail:"Deuxième producteur mondial de charbon, encore central dans son mix électrique."},
+    {cat:"fer", detail:"Grand producteur de minerai de fer."}
+  ], stakes:"La dépendance persistante de l'Inde au charbon complique sa position dans les négociations climatiques internationales, tandis que le pays cherche à diversifier ses importations d'énergie (dont le pétrole russe à prix réduit) pour préserver son indépendance stratégique."},
+"Mexique": {aliases:["mexico"], resources:[
+    {cat:"argent", detail:"Premier producteur mondial d'argent."},
+    {cat:"petrole", detail:"Producteur pétrolier historique via la compagnie d'État Pemex."}
+  ], stakes:"Pemex, pilier symbolique de la souveraineté énergétique mexicaine depuis la nationalisation de 1938, reste un enjeu politique sensible face aux pressions pour ouvrir davantage le secteur aux investisseurs étrangers."},
+"Pérou": {aliases:["peru"], resources:[
+    {cat:"cuivre", detail:"Deuxième producteur mondial de cuivre."},
+    {cat:"argent", detail:"Parmi les tout premiers producteurs mondiaux d'argent."},
+    {cat:"or", detail:"Grand producteur d'or en Amérique latine."}
+  ], stakes:"Les grands projets miniers de cuivre, très convoités pour la transition énergétique mondiale, provoquent des conflits sociaux récurrents avec les communautés andines et amazoniennes sur le partage des revenus et l'impact environnemental."},
+"Norvège": {aliases:["norway"], resources:[
+    {cat:"petrole", detail:"Grand producteur européen de pétrole en mer du Nord."},
+    {cat:"gaz", detail:"Devenu le premier fournisseur de gaz de l'Union européenne après la rupture avec la Russie."}
+  ], stakes:"La Norvège a rapidement comblé une partie du vide laissé par la Russie dans l'approvisionnement gazier européen après 2022, renforçant son poids stratégique en Europe tout en finançant un fonds souverain gigantesque grâce à sa rente pétrolière."},
+"Qatar": {aliases:["qatar"], resources:[
+    {cat:"gaz", detail:"Un des tout premiers exportateurs mondiaux de gaz naturel liquéfié (GNL)."}
+  ], stakes:"Le gisement offshore partagé avec l'Iran (South Pars/North Dome) fait du Qatar un partenaire gazier courtisé par l'Europe en quête d'alternatives au gaz russe, tout en le maintenant proche de Téhéran malgré les tensions régionales avec l'Arabie saoudite."},
+"Émirats arabes unis": {aliases:["united arab emirates"], resources:[
+    {cat:"petrole", detail:"Membre clé de l'OPEP, importantes réserves pétrolières et gazières."}
+  ], stakes:"Abou Dabi diversifie son économie au-delà du pétrole tout en restant un acteur central de l'OPEP+, jouant un rôle d'équilibre entre alliance stratégique avec les États-Unis et relations économiques croissantes avec la Chine."},
+"Libye": {aliases:["libya"], resources:[
+    {cat:"petrole", detail:"Premières réserves pétrolières d'Afrique."}
+  ], stakes:"Depuis la chute de Kadhafi, le contrôle des champs et terminaux pétroliers est disputé entre factions rivales, faisant du pétrole à la fois l'enjeu et le moyen de financement de la guerre civile larvée."},
+"Algérie": {aliases:["algeria"], resources:[
+    {cat:"gaz", detail:"Fournisseur historique de gaz de l'Europe du Sud via gazoducs vers l'Italie et l'Espagne."},
+    {cat:"petrole", detail:"Producteur pétrolier membre de l'OPEP."}
+  ], stakes:"L'Algérie a vu son importance stratégique croître pour l'Europe après la rupture des approvisionnements russes, mais les tensions diplomatiques avec l'Espagne et le Maroc compliquent la gestion de ses gazoducs."},
+"Angola": {aliases:["angola"], resources:[
+    {cat:"petrole", detail:"Un des tout premiers producteurs de pétrole d'Afrique."},
+    {cat:"diamants", detail:"Grand producteur de diamants."}
+  ], stakes:"Longtemps très dépendante des investissements chinois adossés au pétrole, l'Angola cherche depuis quelques années à rééquilibrer ses partenariats vers les États-Unis, notamment autour du corridor de Lobito pour l'exportation de minerais."},
+"Zambie": {aliases:["zambia"], resources:[
+    {cat:"cuivre", detail:"Deuxième producteur africain de cuivre."}
+  ], stakes:"La Zambie, lourdement endettée envers la Chine (créancier de nombreux projets miniers et d'infrastructure), illustre les débats sur la \"diplomatie du piège de la dette\" liée aux investissements chinois en Afrique."},
+"Mongolie": {aliases:["mongolia"], resources:[
+    {cat:"charbon", detail:"Grand exportateur de charbon, presque exclusivement vers la Chine."},
+    {cat:"cuivre", detail:"Immense mine de cuivre-or d'Oyu Tolgoi, l'un des plus grands gisements au monde."}
+  ], stakes:"Enclavée entre la Russie et la Chine, la Mongolie dépend presque entièrement de la Chine pour écouler ses ressources, ce qui limite fortement sa marge de manœuvre diplomatique malgré ses immenses réserves minières."},
+"Ukraine": {aliases:["ukraine"], resources:[
+    {cat:"fer", detail:"Importantes réserves de minerai de fer et bassin industriel historique (Donbass, Kryvyi Rih)."},
+    {cat:"agriculture", detail:"Un des \"greniers à blé\" mondiaux, grand exportateur de céréales et d'huile de tournesol."},
+    {cat:"terres_rares", detail:"Gisements potentiels de terres rares et de lithium, encore peu exploités."}
+  ], stakes:"La guerre déclenchée par la Russie en 2022 a mis en lumière l'importance de l'Ukraine pour la sécurité alimentaire mondiale (blocus des ports céréaliers en mer Noire) et a placé ses ressources minérales, dont le potentiel en terres rares, au cœur des discussions sur l'aide occidentale et sa reconstruction."},
+"Afghanistan": {aliases:["afghanistan"], resources:[
+    {cat:"lithium", detail:"Gisements de lithium et de cuivre considérables mais très largement inexploités."},
+    {cat:"terres_rares", detail:"Estimations de réserves significatives de terres rares."}
+  ], stakes:"Le potentiel minier afghan, estimé à plusieurs centaines de milliards de dollars mais jamais réellement exploité en raison de l'instabilité chronique, attire l'intérêt chinois depuis le retrait américain de 2021, sans qu'aucune exploitation d'ampleur n'ait encore vu le jour."},
+"Turkménistan": {aliases:["turkmenistan"], resources:[
+    {cat:"gaz", detail:"Parmi les plus grandes réserves mondiales de gaz naturel, largement sous-exploitées."}
+  ], stakes:"Enclavé et dépendant presque uniquement du gazoduc vers la Chine pour exporter son gaz, le Turkménistan reste largement à l'écart des marchés occidentaux faute d'infrastructures alternatives."},
+"Mali": {aliases:["mali"], resources:[
+    {cat:"or", detail:"Un des principaux producteurs d'or d'Afrique de l'Ouest."}
+  ], stakes:"L'exploitation aurifère, souvent artisanale et peu régulée, finance en partie des groupes armés dans le nord et le centre du pays, dans un contexte de recomposition des alliances militaires (retrait français, présence de groupes russes)."},
+"Ghana": {aliases:["ghana"], resources:[
+    {cat:"or", detail:"Premier producteur d'or d'Afrique."},
+    {cat:"agriculture", detail:"Deuxième exportateur mondial de cacao."}
+  ], stakes:"L'orpaillage illégal (\"galamsey\"), souvent mené avec des équipements et une main-d'œuvre chinoise, provoque une pollution massive des rivières et des tensions politiques internes croissantes."},
+"Colombie": {aliases:["colombia"], resources:[
+    {cat:"charbon", detail:"Grand exportateur de charbon thermique vers l'Europe."},
+    {cat:"petrole", detail:"Producteur pétrolier notable en Amérique latine."}
+  ], stakes:"Le gouvernement colombien a annoncé vouloir cesser progressivement l'octroi de nouveaux permis pétroliers et charbonniers au nom du climat, un choix qui inquiète car ces exportations financent une large part du budget de l'État."},
+"Niger": {aliases:["niger"], resources:[
+    {cat:"uranium", detail:"Un des principaux fournisseurs d'uranium pour les centrales nucléaires françaises."}
+  ], stakes:"Le coup d'État de 2023 et la suspension des exportations d'uranium vers la France ont brutalement rappelé la dépendance historique du parc nucléaire français à l'uranium nigérien, poussant Paris à accélérer la diversification de ses fournisseurs."},
+"Maroc": {aliases:["morocco"], resources:[
+    {cat:"phosphates", detail:"Détient à lui seul environ les trois quarts des réserves mondiales de phosphates, essentiels aux engrais."}
+  ], stakes:"Le quasi-monopole marocain sur les réserves de phosphates (partagées avec le Sahara occidental, territoire disputé) en fait un acteur incontournable de la sécurité alimentaire mondiale via la production d'engrais."},
+"Bolivie": {aliases:["bolivia"], resources:[
+    {cat:"lithium", detail:"Détient les plus grandes réserves mondiales de lithium, encore peu exploitées dans le salar d'Uyuni."}
+  ], stakes:"Malgré ses réserves record, la Bolivie peine à développer une industrie du lithium à grande échelle, entre nationalisme des ressources, instabilité politique et négociations avec des partenaires chinois et russes plutôt qu'occidentaux."},
+"Namibie": {aliases:["namibia"], resources:[
+    {cat:"uranium", detail:"Parmi les cinq premiers producteurs mondiaux d'uranium."},
+    {cat:"diamants", detail:"Diamants marins de grande qualité au large de ses côtes."}
+  ], stakes:"La Namibie a récemment découvert d'importantes réserves pétrolières offshore, suscitant une compétition entre majors internationales pour l'accès à ces gisements encore peu développés."},
+"Pologne": {aliases:["poland"], resources:[
+    {cat:"charbon", detail:"Premier producteur de charbon de l'Union européenne, encore central dans son mix électrique."}
+  ], stakes:"La dépendance persistante au charbon place la Pologne en porte-à-faux régulier avec les objectifs climatiques de l'UE, tout en étant présentée par Varsovie comme un gage d'indépendance énergétique face à la Russie."},
+"Royaume-Uni": {aliases:["united kingdom"], resources:[
+    {cat:"petrole", detail:"Producteur pétrolier et gazier en déclin en mer du Nord."}
+  ], stakes:"L'épuisement progressif des gisements de la mer du Nord a transformé le Royaume-Uni d'exportateur net en importateur d'énergie, accentuant sa dépendance au marché mondial du GNL."},
+"Papouasie-Nouvelle-Guinée": {aliases:["papua new guinea"], resources:[
+    {cat:"or", detail:"Importants gisements d'or et de cuivre, dont la mine géante de Panguna à Bougainville."},
+    {cat:"cuivre", detail:"Le gisement de Panguna a été un déclencheur majeur de la guerre civile de Bougainville."}
+  ], stakes:"L'exploitation minière a directement alimenté un conflit sécessionniste sur l'île de Bougainville dans les années 1990, illustrant comment le partage inégal des revenus miniers peut déclencher des guerres civiles."},
+"Sierra Leone": {aliases:["sierra leone"], resources:[
+    {cat:"diamants", detail:"Diamants alluvionnaires ayant financé un des conflits les plus meurtriers d'Afrique de l'Ouest."}
+  ], stakes:"Les \"diamants de sang\" de Sierra Leone, qui ont financé la guerre civile des années 1990, ont conduit à la création du Processus de Kimberley visant à empêcher le commerce international de diamants issus de zones de conflit."},
+"Turquie": {aliases:["turkey"], resources:[
+    {cat:"phosphates", detail:"Détient l'essentiel des réserves mondiales de bore, minerai stratégique pour l'aéronautique et le nucléaire."}
+  ], stakes:"La position de la Turquie comme carrefour énergétique (gazoducs reliant la Russie, l'Asie centrale et l'Europe) lui donne un poids diplomatique disproportionné dans les négociations énergétiques régionales."},
+"Argentine": {aliases:["argentina"], resources:[
+    {cat:"lithium", detail:"Membre du \"triangle du lithium\" avec le Chili et la Bolivie, réserves en forte croissance."},
+    {cat:"agriculture", detail:"Grand exportateur mondial de soja et de céréales."}
+  ], stakes:"L'essor rapide de l'extraction de lithium en Argentine, portée par des capitaux chinois et occidentaux, ravive les débats sur l'usage de l'eau dans des régions arides et sur le partage des revenus avec les provinces et communautés locales."},
+"Égypte": {aliases:["egypt"], resources:[
+    {cat:"gaz", detail:"Gisement gazier offshore de Zohr, l'un des plus grands de Méditerranée."}
+  ], stakes:"La découverte du gisement de Zohr a rebattu les cartes énergétiques en Méditerranée orientale, ravivant des différends frontaliers maritimes avec la Grèce, Chypre, la Turquie et Israël sur la délimitation des zones économiques exclusives."}
+};
+
+// Build lookup: normalized alias -> data key
+const ALIAS_LOOKUP = {};
+Object.entries(DATA).forEach(([key, d]) => {
+  const names = [key, ...(d.aliases||[])];
+  names.forEach(n => ALIAS_LOOKUP[n.toLowerCase()] = key);
+});
+
+function findDataForFeatureName(name){
+  if(!name) return null;
+  const n = name.toLowerCase().trim();
+  if(ALIAS_LOOKUP[n]) return ALIAS_LOOKUP[n];
+  // fuzzy: try includes both ways
+  for(const alias in ALIAS_LOOKUP){
+    if(alias.length > 3 && (n.includes(alias) || alias.includes(n))){
+      return ALIAS_LOOKUP[alias];
+    }
+  }
+  return null;
+}
+
+// ---------- Build sidebar chips ----------
+const chipsEl = document.getElementById('chips');
+let activeFilter = null;
+Object.entries(CATS).forEach(([key, c]) => {
+  const chip = document.createElement('button');
+  chip.className = 'chip';
+  chip.dataset.cat = key;
+  chip.innerHTML = `<span class="dot" style="background:${c.color}"></span>${c.label}`;
+  chip.addEventListener('click', () => {
+    if(activeFilter === key){
+      activeFilter = null;
+    } else {
+      activeFilter = key;
+    }
+    updateChipStates();
+    renderMapColors();
+  });
+  chipsEl.appendChild(chip);
+});
+function updateChipStates(){
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.cat === activeFilter);
+  });
+}
+document.getElementById('reset-btn').addEventListener('click', () => {
+  activeFilter = null;
+  updateChipStates();
+  renderMapColors();
+  closePanel();
+  clearSelection();
+});
+document.getElementById('panel-close').addEventListener('click', closePanel);
+
+function closePanel(){
+  document.getElementById('panel').classList.remove('open');
+}
+function clearSelection(){
+  d3.selectAll('.country').classed('selected', false);
+}
+
+// ---------- Map ----------
+let svg, gCountries, projection, path;
+const wrap = document.getElementById('map-wrap');
+
+function dominantCat(key){
+  const d = DATA[key];
+  if(!d || !d.resources || !d.resources.length) return null;
+  return d.resources[0].cat;
+}
+
+function renderMapColors(){
+  if(!gCountries) return;
+  gCountries.selectAll('path.country')
+    .attr('fill', d => {
+      const key = d._dataKey;
+      const cat = key ? dominantCat(key) : null;
+      if(activeFilter){
+        if(key && DATA[key].resources.some(r => r.cat === activeFilter)){
+          return CATS[activeFilter].color;
+        }
+        return NO_DATA_COLOR;
+      }
+      return cat ? CATS[cat].color : NO_DATA_COLOR;
+    })
+    .classed('dimmed', d => {
+      if(!activeFilter) return false;
+      const key = d._dataKey;
+      return !(key && DATA[key].resources.some(r => r.cat === activeFilter));
+    });
+}
+
+function showCountryPanel(key){
+  const d = DATA[key];
+  const content = document.getElementById('panel-content');
+  if(!d){
+    content.innerHTML = `<div id="empty-panel">Aucune donnée de ressources n'est référencée dans cet atlas pour ce pays.</div>`;
+  } else {
+    let html = `<div class="kicker">Dossier pays</div><h2>${key}</h2>`;
+    d.resources.forEach(r => {
+      const c = CATS[r.cat];
+      html += `<div class="res-item" style="border-left-color:${c.color}">
+        <div class="res-cat" style="color:${c.color}">${c.label}</div>
+        <div class="res-detail">${r.detail}</div>
+      </div>`;
+    });
+    html += `<div class="stakes-title">Enjeux géopolitiques</div><div class="stakes-text">${d.stakes}</div>`;
+    content.innerHTML = html;
+  }
+  document.getElementById('panel').classList.add('open');
+}
+
+async function init(){
+  const width = wrap.clientWidth, height = wrap.clientHeight;
+  svg = d3.select(wrap).append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
+  projection = d3.geoNaturalEarth1().fitSize([width - 20, height - 20], {type:"Sphere"});
+  path = d3.geoPath(projection);
+
+  gCountries = svg.append('g').attr('transform', 'translate(10,10)');
+
+  try {
+    const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    const countries = topojson.feature(world, world.objects.countries);
+    document.getElementById('loading').style.display = 'none';
+
+    countries.features.forEach(f => {
+      f._dataKey = findDataForFeatureName(f.properties.name);
+    });
+
+    gCountries.selectAll('path.country')
+      .data(countries.features)
+      .enter()
+      .append('path')
+      .attr('class', 'country')
+      .attr('d', path)
+      .on('click', function(event, d){
+        clearSelection();
+        if(d._dataKey){
+          d3.select(this).classed('selected', true);
+          showCountryPanel(d._dataKey);
+        } else {
+          showCountryPanel(null);
+        }
+      })
+      .append('title')
+      .text(d => d.properties.name);
+
+    renderMapColors();
+    document.getElementById('status').textContent =
+      `${Object.keys(DATA).length} pays documentés · projection Natural Earth`;
+
+  } catch(err){
+    document.getElementById('loading').textContent =
+      "Impossible de charger la carte (connexion internet requise pour les données cartographiques).";
+    console.error(err);
+  }
+}
+
+window.addEventListener('resize', () => {
+  wrap.innerHTML = '<div id="status"></div>';
+  init();
+});
+
+init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>

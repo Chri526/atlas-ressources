@@ -1,0 +1,15 @@
+{
+  "name": "Atlas Géopolitique des Ressources",
+  "short_name": "Atlas Ressources",
+  "description": "Carte interactive des ressources naturelles du monde et des enjeux géopolitiques associés.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e1a26",
+  "theme_color": "#0e1a26",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
