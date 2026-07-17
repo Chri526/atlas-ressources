@@ -1,4 +1,4 @@
-const CACHE_NAME = "atlas-ressources-v1";
+const CACHE_NAME = "atlas-ressources-v2";
 const APP_SHELL = [
   "./index.html",
   "./manifest.json",
@@ -23,24 +23,17 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// App shell: cache-first. Everything else (map data, CDN libs): network-first, fallback to cache.
+// Stratégie : toujours essayer le réseau en premier (pour avoir la dernière version),
+// et ne se rabattre sur le cache que si la connexion échoue (mode hors-ligne).
+// Cela vaut pour l'app elle-même ET pour les données de la carte / bibliothèques externes.
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  const isAppShell = url.origin === self.location.origin;
-
-  if (isAppShell) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
-    );
-  } else {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-  }
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
 });
