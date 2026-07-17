@@ -74,6 +74,71 @@
     font-family:inherit; font-size:11px; cursor:pointer; letter-spacing:0.5px;
   }
   #reset-btn:hover{background:var(--brass); color:var(--ink);}
+  #resources-btn{
+    width:100%; padding:9px; margin-bottom:10px; background:var(--brass); border:1px solid var(--brass);
+    color:var(--ink); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer;
+    letter-spacing:0.5px; border-radius:2px;
+  }
+  #resources-btn:hover{background:#d8ad5c;}
+
+  /* ---- Modal Ressources ---- */
+  #res-modal{
+    position:fixed; inset:0; background:rgba(6,11,18,0.86); z-index:50;
+    display:none; align-items:stretch; justify-content:center;
+  }
+  #res-modal.open{display:flex;}
+  #res-modal-box{
+    width:100%; max-width:1100px; margin:24px; background:var(--panel); border:1px solid var(--line);
+    display:flex; flex-direction:column; max-height:calc(100vh - 48px); border-radius:3px; overflow:hidden;
+  }
+  #res-modal-header{
+    display:flex; align-items:center; justify-content:space-between; padding:14px 20px;
+    border-bottom:1px solid var(--line); background:var(--panel-2);
+  }
+  #res-modal-header h2{
+    font-family:'Spectral', Georgia, serif; font-size:19px; margin:0; color:var(--paper);
+  }
+  #res-modal-close{
+    background:none; border:none; color:var(--paper-dim); font-size:20px; cursor:pointer; line-height:1;
+  }
+  #res-modal-body{display:flex; flex:1; min-height:0;}
+  #res-list{
+    width:230px; min-width:180px; border-right:1px solid var(--line); overflow-y:auto; padding:10px;
+    background:var(--panel);
+  }
+  .res-list-item{
+    display:flex; align-items:center; gap:8px; padding:8px 10px; font-size:12px; cursor:pointer;
+    border-radius:2px; margin-bottom:2px; color:var(--paper);
+  }
+  .res-list-item:hover{background:var(--panel-2);}
+  .res-list-item.active{background:var(--panel-2); font-weight:700; color:var(--brass);}
+  .res-list-item .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  #res-detail{flex:1; overflow-y:auto; padding:22px 26px;}
+  #res-detail h3{font-family:'Spectral', Georgia, serif; font-size:22px; margin:0 0 4px 0; color:var(--paper);}
+  #res-detail .res-kicker{font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--brass); margin-bottom:14px;}
+  #res-detail .res-section-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--rust);
+    margin:22px 0 10px 0; border-top:1px solid var(--line); padding-top:16px;
+  }
+  #res-detail p{font-size:13px; line-height:1.7; color:var(--paper); margin:0 0 10px 0;}
+  table.res-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.res-table th{
+    text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--paper-dim);
+    padding:6px 8px; border-bottom:1px solid var(--line);
+  }
+  table.res-table td{padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--paper);}
+  table.res-table tr:nth-child(1) td{color:var(--brass); font-weight:700;}
+  .res-flow-box{
+    background:var(--panel-2); border-left:3px solid var(--teal); padding:10px 12px; margin:8px 0;
+    font-size:12.5px; line-height:1.6;
+  }
+  .res-flow-box b{color:var(--brass);}
+  .res-source-note{font-size:10.5px; color:var(--paper-dim); margin-top:18px; font-style:italic;}
+  @media (max-width:760px){
+    #res-modal-box{margin:0; max-height:100vh; height:100vh;}
+    #res-modal-body{flex-direction:column;}
+    #res-list{width:100%; border-right:none; border-bottom:1px solid var(--line); max-height:150px;}
+  }
 
   #map-wrap{flex:1; position:relative; background:
       radial-gradient(circle at 30% 20%, #142234 0%, var(--ink) 70%);
@@ -143,6 +208,7 @@
   <div id="main">
     <div id="sidebar">
       <h2>Filtrer par ressource</h2>
+      <button id="resources-btn">📊 Encyclopédie des Ressources</button>
       <div id="chips"></div>
       <button id="reset-btn">↺ Réinitialiser la vue</button>
       <div id="legend-note">
@@ -163,6 +229,19 @@
           <div id="empty-panel">Sélectionnez un pays sur la carte pour afficher le détail de ses ressources et des tensions géopolitiques qui y sont liées.</div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="res-modal">
+  <div id="res-modal-box">
+    <div id="res-modal-header">
+      <h2>📊 Encyclopédie des Ressources</h2>
+      <button id="res-modal-close">✕</button>
+    </div>
+    <div id="res-modal-body">
+      <div id="res-list"></div>
+      <div id="res-detail"></div>
     </div>
   </div>
 </div>
@@ -191,6 +270,150 @@ const CATS = {
   etain:     {label:"Étain",        color:"#9aa5ad"}
 };
 const NO_DATA_COLOR = "#1c2a38";
+
+// ---------- Detailed resource encyclopedia ----------
+// Sources: USGS Mineral Commodity Summaries 2025 (données 2024) ; OPEC Annual Statistical Bulletin 2025 ;
+// EIA ; Kimberley Process Certification Scheme 2024 ; USDA/FAO. Chiffres arrondis, ordres de grandeur.
+const RESOURCES = {
+petrole: {
+  desc:"Le pétrole brut reste la première source d'énergie commercialisée au monde et la matière première la plus échangée. Il alimente les transports, la pétrochimie, et sert de base à une grande partie des recettes budgétaires des États producteurs du Golfe, de Russie et d'Amérique latine.",
+  reserves:[["Venezuela","303 Mds barils"],["Arabie saoudite","267 Mds barils"],["Canada (dont sables bitumineux)","168 Mds barils"],["Iran","209 Mds barils"],["Irak","145 Mds barils"],["Russie","~80–107 Mds barils"],["Koweït","101 Mds barils"],["Émirats arabes unis","113 Mds barils"],["États-Unis","~40 Mds barils"],["Libye","48 Mds barils"]],
+  reservesNote:"Réserves prouvées fin 2024 (OPEC Annual Statistical Bulletin, EIA).",
+  production:[["États-Unis","≈13,2 Mb/j"],["Arabie saoudite","≈10,9 Mb/j"],["Russie","≈10,8 Mb/j"],["Canada","≈5,8 Mb/j"],["Irak","≈4,3 Mb/j"],["Chine","≈4,3 Mb/j"],["Iran","≈4,6 Mb/j"],["Émirats arabes unis","≈3,4 Mb/j"],["Brésil","≈3,4 Mb/j"],["Koweït","≈2,9 Mb/j"]],
+  flows:"<b>Exportateurs dominants :</b> Arabie saoudite (1er exportateur mondial), Russie, Irak, Canada, États-Unis et Émirats arabes unis. <b>Importateurs dominants :</b> la Chine et l'Inde, devenues les deux principaux moteurs de la demande mondiale, suivies par l'Union européenne, le Japon et la Corée du Sud. Environ 40% du pétrole mondial transite par le détroit d'Ormuz, un point de passage stratégique surveillé de près pour tout risque de blocage.",
+  geo:"Le pétrole demeure l'instrument géopolitique par excellence : quotas de l'OPEP+ pour peser sur les prix, sanctions américaines contre le Venezuela et l'Iran qui les excluent largement des marchés occidentaux, guerre des prix ponctuelle entre l'Arabie saoudite et la Russie, ou encore risques récurrents de fermeture du détroit d'Ormuz en cas de tensions avec l'Iran."
+},
+gaz: {
+  desc:"Le gaz naturel s'est imposé comme énergie de transition, moins émettrice que le charbon, utilisée pour l'électricité, le chauffage et l'industrie. Il se transporte par gazoduc (fixe, dépendant d'infrastructures) ou sous forme liquéfiée (GNL, flexible mais coûteuse), deux logiques aux conséquences géopolitiques opposées.",
+  reserves:[["Russie","~1 688 Mds m³"],["Iran","~1 200 Mds m³"],["Qatar","~850 Mds m³"],["Turkménistan","~713 Mds m³"],["États-Unis","~13 000 Mds m³ (estim. hautes incl. schiste)"],["Chine","~300+ Mds m³"],["Arabie saoudite","~206 Mds m³"],["Émirats arabes unis","~215 Mds m³"],["Venezuela","~196 Mds m³"],["Nigeria","~206 Mds m³"]],
+  reservesNote:"Estimations agrégées (BP/EIA), fortement dépendantes de la méthodologie ; ordres de grandeur.",
+  production:[["États-Unis","1er producteur, ≈23% de l'offre mondiale"],["Russie","2e producteur"],["Iran","3e producteur"],["Chine","en forte croissance"],["Canada","exportateur régional (pipeline vers les USA)"],["Qatar",""],["Australie","grand exportateur de GNL"],["Norvège","1er fournisseur de l'UE depuis 2022"]],
+  flows:"<b>Exportateurs :</b> États-Unis (1er exportateur mondial toutes voies confondues), Russie (surtout par gazoduc vers l'Europe et la Chine), Qatar et Australie (GNL), Norvège (devenue le principal fournisseur par gazoduc de l'UE). <b>Importateurs :</b> la Chine (1er importateur de GNL), le Japon, la Corée du Sud, et l'Union européenne prise dans son ensemble.",
+  geo:"La rupture des livraisons de gaz russe par gazoduc vers l'Europe après 2022 a rebattu toutes les cartes : l'UE s'est tournée en urgence vers le GNL américain et qatari et le gaz norvégien, au prix d'une facture énergétique bien plus élevée. Le Qatar, grâce à son gisement offshore partagé avec l'Iran, joue un rôle d'équilibriste diplomatique entre l'Iran et les pays du Golfe qui l'entourent."
+},
+charbon:{
+  desc:"Le charbon reste la première source de production électrique mondiale malgré la transition énergétique, principalement à cause de la Chine et de l'Inde. Il se divise entre charbon thermique (électricité) et charbon métallurgique (sidérurgie).",
+  reserves:[["États-Unis","≈250 Mds t"],["Russie","≈162 Mds t"],["Australie","≈150 Mds t"],["Chine","≈143 Mds t (production bien supérieure aux réserves déclarées)"],["Inde","≈111–319 Mds t (estimations variables)"],["Allemagne","≈36 Mds t"],["Ukraine","≈34 Mds t"],["Kazakhstan","≈26 Mds t"]],
+  reservesNote:"Chiffres de réserves très hétérogènes selon les sources ; ordres de grandeur indicatifs.",
+  production:[["Chine","≈4 860 Mt/an (plus de la moitié de la production mondiale)"],["Inde","≈1 000+ Mt/an, en forte hausse"],["Indonésie","≈836 Mt/an"],["États-Unis","≈464 Mt/an"],["Russie","≈427 Mt/an"],["Australie","≈450–550 Mt/an"]],
+  flows:"<b>Exportateurs :</b> Indonésie (1er exportateur mondial, essentiellement vers la Chine et l'Inde), Australie, Russie, Afrique du Sud, Mongolie (quasi exclusivement vers la Chine). <b>Importateurs :</b> la Chine reste le premier importateur mondial malgré sa production massive, suivie de l'Inde, du Japon, de la Corée du Sud et du Vietnam.",
+  geo:"La dépendance de la Chine et de l'Inde au charbon complique leur position dans les négociations climatiques internationales. Les sanctions occidentales contre le charbon russe après 2022 ont redirigé les flux russes vers l'Asie, tandis que l'Europe a dû, temporairement, relancer certaines centrales à charbon pour compenser la perte du gaz russe."
+},
+or:{
+  desc:"Valeur refuge par excellence, l'or joue un double rôle : réserve stratégique des banques centrales et actif d'investissement en période d'incertitude, en plus de son usage en joaillerie et en électronique.",
+  reserves:[["Australie","11 000 t"],["Russie","12 000 t"],["Afrique du Sud","5 000 t"],["Indonésie","3 600 t"],["Chine","3 100 t"],["Pérou","2 500 t"],["Ouzbékistan","1 800 t"],["Kazakhstan","2 300 t"],["Ghana","1 000 t"],["Mexique","1 400 t"]],
+  reservesNote:"Réserves 2024 (USGS Mineral Commodity Summaries 2025).",
+  production:[["Chine","380 t"],["Russie","310 t"],["Australie","290 t"],["Canada","200 t"],["États-Unis","160 t"],["Ghana","130 t"],["Mexique","130 t"],["Kazakhstan","130 t"],["Pérou","100 t"],["Indonésie","100 t"]],
+  flows:"<b>Flux principaux :</b> une grande partie de l'or physique transite par des hubs de raffinage et de négoce (Suisse, Émirats arabes unis, Londres) avant de rejoindre bijoutiers et banques centrales. La Chine, l'Inde et la Russie ont fortement augmenté leurs achats officiels ces dernières années.",
+  geo:"Les banques centrales, notamment celles des pays du Sud global et de la Russie, ont massivement accru leurs réserves d'or depuis 2022 pour réduire leur dépendance au dollar et se prémunir contre d'éventuelles sanctions financières — un mouvement surveillé de près par les marchés occidentaux."
+},
+diamants:{
+  desc:"Le diamant brut se distingue des autres ressources par la disproportion entre poids et valeur : quelques grammes peuvent valoir des fortunes, ce qui en a fait historiquement un vecteur de financement de conflits armés (\"diamants de sang\").",
+  reserves:[["Ordre de grandeur","les réserves précises sont rarement publiées par les producteurs"]],
+  reservesNote:"Contrairement aux minerais industriels, les compagnies diamantaires communiquent peu sur leurs réserves ; les données fiables portent surtout sur la production annuelle (Kimberley Process).",
+  production:[["Russie","37,3 M carats (31,6% du total, $3,34 Mds)"],["Botswana","28,2 M carats (23,9%, $3,31 Mds)"],["Angola","14,0 M carats ($1,41 Md)"],["Canada","13,3 M carats ($1,08 Md)"],["RD Congo","9,8 M carats ($106 M — diamants surtout industriels)"],["Afrique du Sud","5,3 M carats ($662 M)"],["Zimbabwe","5,3 M carats"],["Namibie","2,3 M carats, qualité la plus élevée (~$417/carat)"]],
+  flows:"<b>Exportateurs 2024 (Kimberley Process) :</b> Émirats arabes unis en tête ($9,83 Mds, 85,7 M carats) en tant que hub de négoce mondial, suivis de l'Union européenne, de la Russie et du Botswana. <b>Inde</b> est le centre mondial de la taille et du polissage : elle importe l'essentiel des diamants bruts pour les retravailler avant réexportation vers les États-Unis, l'UE et la Chine.",
+  geo:"Le Processus de Kimberley, créé en 2003 après les guerres civiles financées par les \"diamants de sang\" (Sierra Leone, Angola, RD Congo), certifie l'origine des diamants bruts, mais ses détracteurs jugent son périmètre trop restreint pour couvrir tous les abus actuels. La Russie, visée par des sanctions occidentales sur ses diamants (via Alrosa), continue d'écouler une large part de sa production grâce à la difficulté de tracer l'origine exacte des pierres une fois taillées à l'étranger."
+},
+terres_rares:{
+  desc:"Les 17 éléments de terres rares sont indispensables aux aimants permanents (véhicules électriques, éoliennes, missiles), aux écrans, aux catalyseurs et à l'électronique de précision. Leur enjeu n'est pas la rareté géologique mais la concentration extrême du raffinage.",
+  reserves:[["Chine","44 000 000 t"],["Vietnam","3 500 000 t"],["Brésil","21 000 000 t"],["Russie","3 800 000 t"],["Inde","6 900 000 t"],["Australie","5 700 000 t"],["États-Unis","1 900 000 t"],["Groenland (Danemark)","1 500 000 t"]],
+  reservesNote:"Réserves 2024 en tonnes équivalent oxyde (USGS MCS 2025).",
+  production:[["Chine","270 000 t (≈70% de la production mondiale)"],["Birmanie (Myanmar)","31 000 t"],["Australie","13 000 t"],["Thaïlande","13 000 t"],["Nigeria","13 000 t"],["États-Unis","45 000 t"],["Madagascar","2 000 t"]],
+  flows:"<b>Raffinage :</b> la Chine ne se contente pas de dominer l'extraction (≈70%), elle concentre surtout l'essentiel du raffinage mondial (souvent >85–90%), y compris pour des minerais extraits ailleurs (Australie, Birmanie). Les États-Unis importent l'essentiel de leurs composés de terres rares depuis la Chine, la Malaisie et le Japon.",
+  geo:"Pékin a utilisé à plusieurs reprises des restrictions à l'exportation de terres rares comme levier dans ses tensions commerciales avec les États-Unis, exposant la dépendance critique des industries de défense et de haute technologie occidentales. Cela pousse l'Australie, les États-Unis et l'Union européenne à financer en urgence des capacités de raffinage alternatives, un processus long et coûteux."
+},
+cuivre:{
+  desc:"Le cuivre est le métal de l'électrification : câblage électrique, moteurs, réseaux, et surtout véhicules électriques et infrastructures renouvelables, qui en consomment plusieurs fois plus qu'un véhicule thermique.",
+  reserves:[["Chili","190 000 000 t"],["Australie","100 000 000 t"],["Pérou","100 000 000 t"],["RD Congo","80 000 000 t"],["Russie","80 000 000 t"],["Mexique","53 000 000 t"],["États-Unis","47 000 000 t"],["Chine","41 000 000 t"],["Zambie","21 000 000 t"],["Kazakhstan","20 000 000 t"]],
+  reservesNote:"Réserves 2024, contenu en cuivre (USGS MCS 2025).",
+  production:[["Chili","5 300 000 t"],["RD Congo","3 300 000 t"],["Pérou","2 600 000 t"],["Chine","1 800 000 t"],["États-Unis","1 100 000 t"],["Russie","930 000 t"],["Australie","800 000 t"],["Zambie","680 000 t"],["Kazakhstan","740 000 t"],["Mexique","700 000 t"]],
+  flows:"<b>Exportateurs de minerai/concentré :</b> Chili (1er exportateur mondial), Pérou, RD Congo. <b>Raffinage :</b> la Chine domine le raffinage mondial (≈12 000 000 t/an), important une large part du concentré brut chilien et congolais pour le transformer. <b>Importateurs de cuivre raffiné :</b> Chine de loin le premier, suivie des industriels d'Asie du Sud-Est et d'Europe.",
+  geo:"Le Chili envisage régulièrement d'accroître la fiscalité ou le contrôle public sur ses mines de cuivre, ce qui inquiète les investisseurs alors que la demande mondiale explose avec la transition électrique. En RD Congo, l'essor de la ceinture cuivre-cobalt du Katanga s'accompagne d'une present chinoise très marquée dans le capital des mines."
+},
+fer:{
+  desc:"Le minerai de fer est la matière première de l'acier, donc de la construction, de l'automobile et de l'armement. Sa demande est structurellement liée à la croissance industrielle chinoise, premier consommateur mondial.",
+  reserves:[["Australie","627 000 000 000 t (contenu fer)"],["Brésil","15 000 000 000 t"],["Russie","14 000 000 000 t"],["Chine","6 900 000 000 t"],["Ukraine","72 300 000 t (Soviet classification)"],["Inde","3 400 000 000 t"],["Canada","2 300 000 000 t"],["États-Unis","2 300 000 000 t"]],
+  reservesNote:"Réserves 2024, contenu en fer (USGS MCS 2025) ; les chiffres varient fortement selon crude/usable ore.",
+  production:[["Australie","930 000 000 t (usable ore)"],["Brésil","440 000 000 t"],["Chine","270 000 000 t"],["Inde","270 000 000 t"],["Russie","91 000 000 t"],["Ukraine","42 000 000 t"],["Canada","54 000 000 t"],["Afrique du Sud","66 000 000 t"]],
+  flows:"<b>Exportateurs :</b> Australie (1er exportateur mondial, presque exclusivement vers la Chine), Brésil (2e exportateur). <b>Importateur :</b> la Chine absorbe à elle seule plus de 70% du commerce mondial de minerai de fer, ce qui en fait l'acheteur dont dépend directement le prix mondial.",
+  geo:"L'interdépendance entre les géants miniers australiens et la sidérurgie chinoise crée une relation économique cruciale malgré les tensions diplomatiques sino-australiennes. Un immense gisement de très haute teneur en Guinée (Simandou) doit entrer en production, ce qui pourrait rebattre les cartes de l'offre mondiale d'ici la fin de la décennie."
+},
+uranium:{
+  desc:"L'uranium est le combustible du nucléaire civil et militaire. Sa chaîne de valeur (extraction, conversion, enrichissement) est concentrée dans un petit nombre de pays, ce qui en fait un enjeu de souveraineté énergétique majeur.",
+  reserves:[["Australie","1ères réserves mondiales estimées (OCDE/AIEA)"],["Kazakhstan","2e/3e réserves mondiales"],["Canada",""],["Russie",""],["Namibie",""],["Afrique du Sud",""],["Niger",""],["Ouzbékistan",""]],
+  reservesNote:"Classement des réserves selon le \"Red Book\" OCDE-AEN/AIEA ; ordres de grandeur, données précises non incluses dans les sources USGS consultées.",
+  production:[["Kazakhstan","1er producteur mondial, ≈40% de l'offre"],["Canada","2e producteur"],["Namibie","3e producteur"],["Australie","4e producteur"],["Ouzbékistan","5e producteur"],["Russie",""],["Chine",""],["Niger",""]],
+  flows:"<b>Exportateurs :</b> le Kazakhstan (via la compagnie Kazatomprom) fournit à lui seul plus d'un tiers de l'uranium mondial, suivi du Canada et de la Namibie. <b>Importateurs :</b> les grands parcs nucléaires civils (France, États-Unis, Chine, Russie, Corée du Sud, Japon) dépendent presque tous d'importations massives.",
+  geo:"Le coup d'État de 2023 au Niger et la suspension consécutive des exportations d'uranium vers la France ont brutalement exposé la dépendance historique du parc nucléaire français à l'uranium nigérien. La dépendance occidentale à la filière russe d'enrichissement (Rosatom) reste par ailleurs un point sensible, la Russie n'ayant pas été sanctionnée sur ce secteur précis malgré la guerre en Ukraine."
+},
+lithium:{
+  desc:"Le lithium est devenu le métal symbole de la transition électrique : plus de 85% de sa consommation mondiale sert aux batteries des véhicules électriques et au stockage d'énergie.",
+  reserves:[["Chili","9 300 000 t"],["Australie","7 000 000 t"],["Chine","3 000 000 t"],["Argentine","4 000 000 t"],["États-Unis","1 800 000 t"],["Zimbabwe","480 000 t"],["Brésil","390 000 t"],["Portugal","60 000 t"]],
+  reservesNote:"Réserves 2024, contenu en lithium (USGS MCS 2025). À noter : les ressources identifiées (non encore \"réserves\") sont bien plus vastes en Bolivie (23 Mt) et en Argentine (23 Mt).",
+  production:[["Australie","88 000 t (1er producteur mondial)"],["Chili","49 000 t"],["Chine","41 000 t"],["Argentine","18 000 t"],["Zimbabwe","22 000 t"],["Brésil","10 000 t"]],
+  flows:"<b>Exportateurs :</b> le Chili et l'Argentine exportent surtout sous forme de carbonate/hydroxyde de lithium brut, notamment vers la Chine, qui assure l'essentiel du raffinage mondial en composés de qualité batterie. <b>Le \"triangle du lithium\"</b> (Chili, Argentine, Bolivie) concentre une part majeure des ressources mondiales en salars.",
+  geo:"La Bolivie, malgré des ressources potentiellement immenses, peine à développer une industrie du lithium à grande échelle en raison de l'instabilité politique et négocie surtout avec des partenaires chinois et russes plutôt qu'occidentaux. Le Chili débat régulièrement d'une nationalisation partielle du secteur, ce qui inquiète les industriels étrangers du secteur des batteries."
+},
+cobalt:{
+  desc:"Le cobalt stabilise les cathodes des batteries lithium-ion à haute densité énergétique. Sa production est la plus concentrée géographiquement de tous les métaux critiques.",
+  reserves:[["RD Congo","6 000 000 t"],["Australie","1 700 000 t"],["Indonésie","640 000 t"],["Cuba","500 000 t"],["Philippines","260 000 t"],["Russie","250 000 t"],["Canada","220 000 t"]],
+  reservesNote:"Réserves 2024 (USGS MCS 2025).",
+  production:[["RD Congo","220 000 t (≈76% de la production mondiale)"],["Indonésie","28 000 t (≈10%)"],["Russie","8 700 t"],["Australie","3 600 t"],["Canada","4 500 t"],["Cuba","3 500 t"]],
+  flows:"<b>Extraction :</b> la RD Congo assure à elle seule les trois quarts de l'offre mondiale. <b>Raffinage :</b> la Chine importe l'essentiel du cobalt semi-raffiné congolais et indonésien pour le transformer, devenant ainsi le premier raffineur et le premier consommateur mondial (industrie des batteries).",
+  geo:"Le cobalt congolais est régulièrement associé à des accusations de travail des enfants et de \"minerais de conflit\" finançant des groupes armés dans l'Est du pays. Des entreprises chinoises contrôlent une part dominante des grandes mines congolaises, ce qui inquiète les constructeurs automobiles occidentaux cherchant à sécuriser des chaînes d'approvisionnement \"éthiques\" alternatives (recyclage, réduction de la teneur en cobalt des batteries)."
+},
+nickel:{
+  desc:"Le nickel entre dans la fabrication de l'acier inoxydable et, de plus en plus, dans les cathodes de batteries à haute autonomie pour véhicules électriques.",
+  reserves:[["Indonésie","55 000 000 t"],["Australie","24 000 000 t"],["Brésil","16 000 000 t"],["Russie","8 300 000 t"],["Nouvelle-Calédonie (France)","7 100 000 t"],["Philippines","4 800 000 t"],["Chine","4 400 000 t"],["Canada","2 200 000 t"]],
+  reservesNote:"Réserves 2024 (USGS MCS 2025).",
+  production:[["Indonésie","2 200 000 t (≈60% de la production mondiale)"],["Philippines","330 000 t"],["Russie","210 000 t"],["Nouvelle-Calédonie","110 000 t (production en chute après les troubles de 2024)"],["Canada","190 000 t"],["Australie","110 000 t"],["Chine","120 000 t"]],
+  flows:"<b>Exportateurs :</b> l'Indonésie, qui a interdit l'exportation de minerai brut pour forcer sa transformation locale, domine désormais l'offre mondiale de nickel transformé, largement capté par des investissements chinois. <b>Importateurs :</b> la Chine, le Japon et la Corée du Sud pour leurs industries de l'acier inoxydable et des batteries.",
+  geo:"L'interdiction indonésienne d'exporter le minerai brut a provoqué un contentieux à l'Organisation mondiale du commerce avec l'Union européenne, tout en propulsant l'Indonésie au rang de partenaire incontournable (et largement sous influence chinoise) de la filière batteries mondiale. Les troubles sociaux en Nouvelle-Calédoine en 2024 ont brutalement réduit la production de ce territoire français, rappelant la fragilité politique de certains bassins miniers."
+},
+bauxite:{
+  desc:"La bauxite est l'unique minerai à partir duquel on produit industriellement l'alumine, puis l'aluminium par électrolyse — un métal léger essentiel à l'aéronautique, l'automobile et l'emballage.",
+  reserves:[["Guinée","7 400 000 000 t"],["Australie","3 500 000 000 t"],["Vietnam","3 100 000 000 t"],["Brésil","2 700 000 000 t"],["Indonésie","2 800 000 000 t"],["Jamaïque","2 000 000 000 t"],["Chine","680 000 000 t"]],
+  reservesNote:"Réserves 2024 (USGS MCS 2025).",
+  production:[["Australie","100 000 000 t"],["Chine","93 000 000 t"],["Guinée","130 000 000 t (1er exportateur mondial)"],["Brésil","33 000 000 t"],["Indonésie","32 000 000 t"],["Inde","25 000 000 t"]],
+  flows:"<b>Exportateurs :</b> la Guinée est devenue le premier exportateur mondial de bauxite brute, en grande partie grâce à des investissements chinois massifs dans ses mines. <b>Raffinage (alumine) :</b> la Chine transforme d'énormes volumes de bauxite importée pour rester le premier producteur mondial d'aluminium.",
+  geo:"La Guinée est devenue incontournable pour l'approvisionnement en bauxite de la Chine, ce qui donne aux entreprises chinoises une influence considérable sur le secteur minier guinéen, dans un pays par ailleurs marqué par une instabilité politique récurrente (coup d'État de 2021)."
+},
+argent:{
+  desc:"L'argent conjugue usages industriels de pointe (photovoltaïque, électronique, catalyse) et rôle de métal précieux d'investissement, ce qui rend sa demande sensible à la fois à la conjoncture financière et à la croissance des renouvelables.",
+  reserves:[["Pérou","140 000 t"],["Australie","94 000 t"],["Russie","92 000 t"],["Chine","70 000 t"],["Pologne","61 000 t"],["Mexique","37 000 t"],["Bolivie","22 000 t"],["Chili","26 000 t"]],
+  reservesNote:"Réserves 2024, contenu en argent (USGS MCS 2025).",
+  production:[["Mexique","6 300 t (1er producteur mondial)"],["Chine","3 300 t"],["Pérou","3 100 t"],["Pologne","1 300 t"],["Australie","1 000 t"],["Russie","1 200 t"],["Bolivie","1 300 t"],["Chili","1 200 t"]],
+  flows:"<b>Exportateurs :</b> le Mexique domine largement la production mondiale, suivi de la Chine et du Pérou. L'argent est presque toujours un sous-produit de l'extraction de plomb-zinc, de cuivre ou d'or, ce qui rend son offre peu réactive aux variations de son propre prix. <b>Importateurs :</b> les États-Unis (dépendance nette de 64%), l'Inde (bijouterie et investissement) et les fabricants de panneaux photovoltaïques en Asie.",
+  geo:"La demande d'argent pour le photovoltaïque augmente rapidement avec la croissance mondiale du solaire, faisant craindre une tension durable entre offre (contrainte car sous-produit minier) et demande industrielle croissante."
+},
+phosphates:{
+  desc:"Le phosphate est l'ingrédient irremplaçable des engrais agricoles (aucun substitut chimique au phosphore en agriculture), ce qui en fait une ressource directement liée à la sécurité alimentaire mondiale.",
+  reserves:[["Maroc (+ Sahara occidental)","50 000 000 000 t (≈68% des réserves mondiales)"],["Chine","3 700 000 000 t"],["Égypte","2 800 000 000 t"],["Algérie","2 200 000 000 t"],["Russie","2 400 000 000 t"],["Tunisie","2 500 000 000 t"],["Afrique du Sud","1 500 000 000 t"],["États-Unis","1 000 000 000 t"]],
+  reservesNote:"Réserves 2024 (USGS MCS 2025). Le Maroc et le Sahara occidental concentrent à eux seuls plus des deux tiers des réserves mondiales connues.",
+  production:[["Chine","110 000 000 t"],["Maroc","30 000 000 t"],["États-Unis","20 000 000 t"],["Russie","14 000 000 t"],["Jordanie","12 000 000 t"],["Arabie saoudite","9 500 000 t"],["Égypte","5 000 000 t"]],
+  flows:"<b>Exportateurs :</b> le Maroc, la Russie et la Jordanie dominent le commerce mondial de phosphate et d'engrais phosphatés. <b>Importateurs :</b> l'Inde et de nombreux pays d'Asie et d'Amérique latine dépendent structurellement des importations pour leur agriculture.",
+  geo:"Le quasi-monopole marocain sur les réserves mondiales de phosphates (dont une partie se trouve au Sahara occidental, territoire disputé) fait du Maroc un acteur incontournable et durable de la sécurité alimentaire mondiale, bien au-delà de son poids économique global."
+},
+etain:{
+  desc:"L'étain sert avant tout à la soudure électronique (composants, cartes-mères) et à la fabrication de fer-blanc pour l'emballage alimentaire, deux usages sans réel substitut à grande échelle.",
+  reserves:[["Chine","1 000 000 t"],["Indonésie","non disponible (réserves non publiées)"],["Birmanie (Myanmar)","700 000 t"],["Brésil","420 000 t"],["Australie","620 000 t"],["Pérou","130 000 t"],["Bolivie","400 000 t"],["Russie","460 000 t"]],
+  reservesNote:"Réserves 2024 (USGS MCS 2025).",
+  production:[["Chine","69 000 t"],["Indonésie","50 000 t"],["Birmanie (Myanmar)","34 000 t"],["Pérou","31 000 t"],["Brésil","29 000 t"],["RD Congo","25 000 t"],["Bolivie","21 000 t"]],
+  flows:"<b>Exportateurs :</b> l'Indonésie et le Pérou dominent les exportations d'étain raffiné, avec la Bolivie et le Brésil comme fournisseurs secondaires. <b>Importateur :</b> les États-Unis, qui ne produisent plus d'étain depuis 1993, dépendent à plus de 70% des importations, notamment du Pérou, de la Bolivie et d'Indonésie.",
+  geo:"L'essor rapide de l'exploitation artisanale de l'étain en RD Congo (Nord-Kivu) est régulièrement associé au financement de groupes armés dans une région déjà déstabilisée par le commerce du cobalt et du coltan."
+},
+agriculture:{
+  desc:"Regroupée ici sous \"agriculture\", cette catégorie couvre les grandes cultures vivrières qui structurent la sécurité alimentaire mondiale : céréales (blé, maïs), oléagineux (soja) et cultures de rente (cacao). Une poignée de pays concentre l'essentiel des exportations, ce qui rend le système très vulnérable aux chocs climatiques ou géopolitiques.",
+  reserves:[["—","Notion de \"réserve\" peu pertinente : il s'agit de production renouvelable annuelle, pas d'un stock épuisable."]],
+  reservesNote:"",
+  production:[["Blé — Russie","1er exportateur mondial, ≈44 Mt/an exportées"],["Blé — USA, Canada, Australie, UE","grands exportateurs secondaires"],["Maïs — Brésil","1er exportateur mondial, ≈102-105 Mt/an"],["Maïs — États-Unis","2e exportateur, ≈55 Mt/an"],["Soja — Brésil","1er exportateur mondial, largement dominant"],["Soja — États-Unis","2e exportateur, ≈46-50 Mt/an"],["Cacao — Côte d'Ivoire & Ghana","≈60% de la production mondiale à eux deux"]],
+  flows:"<b>Principal importateur mondial de soja :</b> la Chine, qui absorbe à elle seule environ 60% du commerce mondial de soja, principalement pour l'alimentation animale — une dépendance utilisée comme levier dans la guerre commerciale sino-américaine. <b>Blé :</b> l'Égypte, l'Indonésie et de nombreux pays d'Afrique du Nord et du Moyen-Orient sont structurellement importateurs nets.",
+  geo:"La guerre en Ukraine a bloqué une large part des exportations céréalières ukrainiennes via la mer Noire, menaçant la sécurité alimentaire de pays très dépendants (Égypte, Liban, plusieurs pays africains) et provoquant une flambée mondiale des prix alimentaires en 2022. La Russie, devenue le premier exportateur mondial de blé, utilise ce levier dans sa diplomatie envers l'Afrique et le Moyen-Orient. Le soja illustre lui aussi la géopolitique agricole : lors de la guerre commerciale américano-chinoise, la Chine a redirigé ses achats vers le Brésil, renforçant durablement la dépendance des deux pays l'un envers l'autre."
+}
+};
+
+const RES_ORDER = ["petrole","gaz","charbon","or","diamants","terres_rares","cuivre","fer","uranium","lithium","cobalt","nickel","bauxite","argent","phosphates","etain","agriculture"];
 
 // ---------- Country dataset ----------
 // aliases help match against Natural Earth / world-atlas name variants
@@ -424,6 +647,72 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   clearSelection();
 });
 document.getElementById('panel-close').addEventListener('click', closePanel);
+
+// ---------- Resource encyclopedia modal ----------
+const resModal = document.getElementById('res-modal');
+const resList = document.getElementById('res-list');
+const resDetail = document.getElementById('res-detail');
+let currentResKey = null;
+
+function buildResList(){
+  resList.innerHTML = '';
+  RES_ORDER.forEach(key => {
+    const cat = CATS[key];
+    const item = document.createElement('div');
+    item.className = 'res-list-item';
+    item.dataset.key = key;
+    item.innerHTML = `<span class="dot" style="background:${cat.color}"></span>${cat.label}`;
+    item.addEventListener('click', () => showResDetail(key));
+    resList.appendChild(item);
+  });
+}
+
+function rowsToTable(rows, cols){
+  if(!rows || !rows.length) return '';
+  let html = `<table class="res-table"><thead><tr><th>${cols[0]}</th><th>${cols[1]}</th></tr></thead><tbody>`;
+  rows.forEach(r => { html += `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`; });
+  html += '</tbody></table>';
+  return html;
+}
+
+function showResDetail(key){
+  currentResKey = key;
+  document.querySelectorAll('.res-list-item').forEach(el => el.classList.toggle('active', el.dataset.key === key));
+  const r = RESOURCES[key];
+  const cat = CATS[key];
+  let html = `<div class="res-kicker" style="color:${cat.color}">Fiche ressource</div><h3>${cat.label}</h3>`;
+  html += `<p>${r.desc}</p>`;
+  if(r.reserves && r.reserves.length){
+    html += `<div class="res-section-title">Classement des réserves par pays</div>`;
+    html += rowsToTable(r.reserves, ['Pays','Réserves']);
+    if(r.reservesNote) html += `<p class="res-source-note">${r.reservesNote}</p>`;
+  }
+  if(r.production && r.production.length){
+    html += `<div class="res-section-title">Production / acteurs principaux</div>`;
+    html += rowsToTable(r.production, ['Pays','Production']);
+  }
+  if(r.flows){
+    html += `<div class="res-section-title">Qui exporte, qui importe</div><div class="res-flow-box">${r.flows}</div>`;
+  }
+  if(r.geo){
+    html += `<div class="res-section-title">Enjeux géopolitiques</div><p>${r.geo}</p>`;
+  }
+  html += `<p class="res-source-note">Sources : USGS Mineral Commodity Summaries 2025 (données 2024) · OPEC Annual Statistical Bulletin 2025 · EIA · Kimberley Process 2024 · USDA/FAO. Chiffres arrondis et sujets à révision.</p>`;
+  resDetail.innerHTML = html;
+  resDetail.scrollTop = 0;
+}
+
+function openResModal(){
+  resModal.classList.add('open');
+  if(!resList.children.length) buildResList();
+  showResDetail(currentResKey || RES_ORDER[0]);
+}
+function closeResModal(){
+  resModal.classList.remove('open');
+}
+document.getElementById('resources-btn').addEventListener('click', openResModal);
+document.getElementById('res-modal-close').addEventListener('click', closeResModal);
+resModal.addEventListener('click', (e) => { if(e.target === resModal) closeResModal(); });
 
 function closePanel(){
   document.getElementById('panel').classList.remove('open');
