@@ -47,6 +47,14 @@
     font-weight:600; font-size:22px; letter-spacing:0.5px; margin:0; color:var(--paper);
   }
   header .subtitle{font-size:11.5px; color:var(--paper-dim); letter-spacing:0.5px;}
+  #menu-toggle{
+    display:none; background:var(--brass); color:var(--ink); border:none; border-radius:2px;
+    font-size:16px; padding:6px 11px; cursor:pointer; font-weight:700; line-height:1;
+  }
+  #sidebar-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(6,11,18,0.6); z-index:4;
+  }
+  #sidebar-backdrop.open{display:block;}
 
   #main{display:flex; flex:1; min-height:0;}
 
@@ -190,6 +198,7 @@
   ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
 
   @media (max-width:760px){
+    #menu-toggle{display:block;}
     #sidebar{position:absolute; z-index:5; height:calc(100% - 60px); top:60px;
       transform:translateX(-100%); transition:transform .2s;}
     #sidebar.mobile-open{transform:translateX(0);}
@@ -202,9 +211,11 @@
 <body>
 <div id="app">
   <header>
+    <button id="menu-toggle">☰</button>
     <h1>⛏ Atlas Géopolitique des Ressources</h1>
     <span class="subtitle">Cliquez un pays pour voir ses ressources et les enjeux géopolitiques associés</span>
   </header>
+  <div id="sidebar-backdrop"></div>
   <div id="main">
     <div id="sidebar">
       <h2>Filtrer par ressource</h2>
@@ -713,6 +724,25 @@ function closeResModal(){
 document.getElementById('resources-btn').addEventListener('click', openResModal);
 document.getElementById('res-modal-close').addEventListener('click', closeResModal);
 resModal.addEventListener('click', (e) => { if(e.target === resModal) closeResModal(); });
+
+// ---------- Mobile sidebar menu ----------
+const sidebarEl = document.getElementById('sidebar');
+const backdropEl = document.getElementById('sidebar-backdrop');
+function openSidebar(){
+  sidebarEl.classList.add('mobile-open');
+  backdropEl.classList.add('open');
+}
+function closeSidebar(){
+  sidebarEl.classList.remove('mobile-open');
+  backdropEl.classList.remove('open');
+}
+document.getElementById('menu-toggle').addEventListener('click', () => {
+  sidebarEl.classList.contains('mobile-open') ? closeSidebar() : openSidebar();
+});
+backdropEl.addEventListener('click', closeSidebar);
+// Close the mobile sidebar automatically once the user picks something from it
+chipsEl.addEventListener('click', () => { if(window.innerWidth <= 760) closeSidebar(); });
+document.getElementById('resources-btn').addEventListener('click', () => { if(window.innerWidth <= 760) closeSidebar(); });
 
 function closePanel(){
   document.getElementById('panel').classList.remove('open');
